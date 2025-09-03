@@ -24,7 +24,7 @@ exports.handler = async function (event) {
     await octokit.repos.createOrUpdateFileContents({
       // IMPORTANT: Change these two lines
       owner: "rcp0696", 
-      repo: "pbiversioncontrol",
+      repo: "pbiversion",
       
       path: reportFile.name,
       message: commitMessage,
