@@ -48,7 +48,7 @@
 
     <script>
         let versions = JSON.parse(localStorage.getItem("versions")) || [];
-        let versionCounter = versions.length > 0 ? parseInt(versions[0].version.replace("v", "")) + 1 : 1;
+        let versionCounter = parseInt(localStorage.getItem("versionCounter")) || (versions.length > 0 ? parseInt(versions[0].version.replace("v", "")) + 1 : 1);
 
         async function uploadFile() {
             const fileInput = document.getElementById("fileInput");
@@ -87,13 +87,15 @@
                         
                         const versionData = {
                             id: Date.now(),
-                            version: "v" + versionCounter++,
+                            version: "v" + versionCounter,
                             filename: file.name,
                             notes: notes,
                             date: new Date().toLocaleString()
                         };
+                        versionCounter++;
                         versions.unshift(versionData);
                         localStorage.setItem("versions", JSON.stringify(versions));
+                        localStorage.setItem("versionCounter", versionCounter);
                         loadVersions();
                         fileInput.value = "";
                         notesInput.value = "";
@@ -141,7 +143,7 @@
                 // encodeURIComponent handles filenames with spaces or special characters
                 const downloadUrl = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${encodeURIComponent(v.filename)}`;
 
-                // --- MODIFIED: The "Actions" cell now contains a real download link ---
+                // --- MODIFIED: The "Actions" cell now contains a real download link and rollback button ---
                 let row = `<tr class="hover:bg-gray-50">
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${v.version}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${v.filename}</td>
@@ -149,6 +151,7 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${v.date}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <a href="${downloadUrl}" download="${v.filename}" target="_blank" class="text-blue-600 hover:text-blue-900 mr-4">Download</a>
+                        <button onclick="alert('Rollback would restore ${v.version} (${v.filename}) from GitHub in a production system.')" class="text-yellow-600 hover:text-yellow-900 mr-4">Rollback</button>
                         <button onclick="deleteVersion(${index})" class="text-red-600 hover:text-red-900">Delete</button>
                     </td>
                 </tr>`;
@@ -169,4 +172,3 @@
     </script>
 </body>
 </html>
-
