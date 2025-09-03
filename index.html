@@ -13,8 +13,19 @@
 <body class="bg-gray-50 text-gray-800">
     <div class="container mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
         <h1 class="text-3xl font-bold text-center mb-6">Power BI Version Control</h1>
-        
-        <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200 mb-8">
+        <div id="loginSection" class="bg-white p-6 rounded-lg shadow-md border border-gray-200 mb-8">
+            <h2 class="text-2xl font-semibold mb-4">Login</h2>
+            <div class="space-y-3">
+                <input type="text" id="usernameInput" placeholder="Username" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none" />
+                <input type="password" id="passwordInput" placeholder="Password" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none" />
+                <div class="flex gap-2">
+                    <button id="loginBtn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">Login</button>
+                    <button id="logoutBtn" class="bg-gray-600 text-white font-bold py-2 px-4 rounded-md hover:bg-gray-700 hidden">Logout</button>
+                </div>
+                <p id="loginStatus" class="text-sm text-red-600"></p>
+            </div>
+        </div>
+        <div id="uploadSection" style="display:none;" class="bg-white p-6 rounded-lg shadow-md border border-gray-200 mb-8">
             <h2 class="text-2xl font-semibold mb-4">Upload New Report</h2>
             <div class="space-y-4">
                 <input type="file" id="fileInput" accept=".pbix" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
@@ -50,7 +61,66 @@
         let versions = JSON.parse(localStorage.getItem("versions")) || [];
         let versionCounter = parseInt(localStorage.getItem("versionCounter")) || (versions.length > 0 ? parseInt(versions[0].version.replace("v", "")) + 1 : 1);
 
+        // --- Simple client-side login (prototype only) ---
+        let loggedIn = false;
+        const validUsers = [
+            { username: "admin", password: "password123" },
+            { username: "rish", password: "pbiproject" }
+        ];
+
+        function showUIForLoggedIn() {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('uploadSection').style.display = 'block';
+            document.getElementById('logoutBtn').classList.remove('hidden');
+            document.getElementById('loginBtn').classList.add('hidden');
+            document.getElementById('loginStatus').textContent = '';
+        }
+
+        function showUIForLoggedOut() {
+            document.getElementById('loginSection').style.display = 'block';
+            document.getElementById('uploadSection').style.display = 'none';
+            document.getElementById('logoutBtn').classList.add('hidden');
+            document.getElementById('loginBtn').classList.remove('hidden');
+        }
+
+        function login() {
+            const u = document.getElementById('usernameInput').value;
+            const p = document.getElementById('passwordInput').value;
+            const match = validUsers.find(user => user.username === u && user.password === p);
+            if (match) {
+                loggedIn = true;
+                localStorage.setItem('loggedInUser', u);
+                showUIForLoggedIn();
+            } else {
+                document.getElementById('loginStatus').textContent = 'Invalid credentials. Try again.';
+            }
+        }
+
+        function logout() {
+            loggedIn = false;
+            localStorage.removeItem('loggedInUser');
+            showUIForLoggedOut();
+        }
+
+        // Auto-login if a user was previously saved
+        window.addEventListener('load', () => {
+            const savedUser = localStorage.getItem('loggedInUser');
+            if (savedUser) {
+                loggedIn = true;
+                showUIForLoggedIn();
+            } else {
+                showUIForLoggedOut();
+            }
+
+            // Attach login/logout listeners
+            const lb = document.getElementById('loginBtn');
+            const lob = document.getElementById('logoutBtn');
+            if (lb) lb.addEventListener('click', login);
+            if (lob) lob.addEventListener('click', logout);
+        });
+
         async function uploadFile() {
+            if (!loggedIn) { alert('You must be logged in to perform this action.'); return; }
             const fileInput = document.getElementById("fileInput");
             const notesInput = document.getElementById("notesInput");
             const uploadBtn = document.getElementById("uploadBtn");
@@ -160,6 +230,7 @@
         }
 
         function deleteVersion(index) {
+            if (!loggedIn) { alert('You must be logged in to perform this action.'); return; }
             if (confirm("Delete this version from the local history?")) {
                 versions.splice(index, 1);
                 localStorage.setItem("versions", JSON.stringify(versions));
