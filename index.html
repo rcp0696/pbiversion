@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Power BI Version Control</title>
+    <link rel="icon" href="data:," />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <div class="container mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
+        <h1 class="text-3xl font-bold text-center mb-6">Power BI Version Control</h1>
+        
+        <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200 mb-8">
+            <h2 class="text-2xl font-semibold mb-4">Upload New Report</h2>
+            <div class="space-y-4">
+                <input type="file" id="fileInput" accept=".pbix" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                <input type="text" id="notesInput" placeholder="Enter version notes (e.g., 'Updated sales data')" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <button id="uploadBtn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:bg-gray-400">
+                    Upload
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+            <h2 class="text-2xl font-semibold mb-4">Version History</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Version</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Filename</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="versionTable" class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let versions = JSON.parse(localStorage.getItem("versions")) || [];
+        let versionCounter = versions.length > 0 ? parseInt(versions[0].version.replace("v", "")) + 1 : 1;
+
+        async function uploadFile() {
+            const fileInput = document.getElementById("fileInput");
+            const notesInput = document.getElementById("notesInput");
+            const uploadBtn = document.getElementById("uploadBtn");
+
+            if (fileInput.files.length === 0) {
+                alert("Please select a file!");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const notes = notesInput.value || `Auto-commit: Added ${file.name}`;
+
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Uploading, please wait...';
+
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+
+            reader.onload = async function () {
+                const payload = {
+                    commitMessage: notes,
+                    reportFile: { name: file.name, content: reader.result }
+                };
+
+                try {
+                    const functionUrl = '/.netlify/functions/upload';
+
+                    const response = await fetch(functionUrl, {
+                        method: 'POST',
+                        body: JSON.stringify(payload),
+                    });
+
+                    if (response.ok) {
+                        alert("Success! File uploaded to GitHub.");
+                        
+                        const versionData = {
+                            id: Date.now(),
+                            version: "v" + versionCounter++,
+                            filename: file.name,
+                            notes: notes,
+                            date: new Date().toLocaleString()
+                        };
+                        versions.unshift(versionData);
+                        localStorage.setItem("versions", JSON.stringify(versions));
+                        loadVersions();
+                        fileInput.value = "";
+                        notesInput.value = "";
+                    } else {
+                        const errorData = await response.json();
+                        const errorMessage = errorData ? errorData.message : `HTTP Error: ${response.status} ${response.statusText}`;
+                        alert(`GitHub upload failed: ${errorMessage}`);
+                    }
+                } catch (error) {
+                    console.error("A critical error occurred:", error);
+                    if (error instanceof TypeError) {
+                         alert("Upload failed. This may be a network error or a configuration issue. Please check the F12 developer console.");
+                    } else {
+                         alert("Upload failed. Check the F12 developer console for details.");
+                    }
+                } finally {
+                    uploadBtn.disabled = false;
+                    uploadBtn.textContent = 'Upload';
+                }
+            };
+
+            reader.onerror = function () {
+                alert("Error reading file!");
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Upload';
+            };
+        }
+
+        function loadVersions() {
+            const table = document.getElementById("versionTable");
+            table.innerHTML = "";
+            if (versions.length === 0) {
+                table.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-4">No versions uploaded yet.</td></tr>`;
+                return;
+            }
+            versions.forEach((v, index) => {
+                let row = `<tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${v.version}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${v.filename}</td>
+                    <td class="px-6 py-4 max-w-xs truncate text-sm text-gray-500" title="${v.notes}">${v.notes}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${v.date}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button onclick="deleteVersion(${index})" class="text-red-600 hover:text-red-900">Delete</button>
+                    </td>
+                </tr>`;
+                table.innerHTML += row;
+            });
+        }
+
+        function deleteVersion(index) {
+            if (confirm("Delete this version from the local history?")) {
+                versions.splice(index, 1);
+                localStorage.setItem("versions", JSON.stringify(versions));
+                loadVersions();
+            }
+        }
+
+        document.getElementById("uploadBtn").addEventListener("click", uploadFile);
+        window.addEventListener("load", loadVersions);
+    </script>
+</body>
+</html>
