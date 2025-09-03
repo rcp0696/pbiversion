@@ -39,7 +39,8 @@
                         </tr>
                     </thead>
                     <tbody id="versionTable" class="bg-white divide-y divide-gray-200">
-                        </tbody>
+                        <!-- Rows will be inserted here -->
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -76,7 +77,6 @@
 
                 try {
                     const functionUrl = '/.netlify/functions/upload';
-
                     const response = await fetch(functionUrl, {
                         method: 'POST',
                         body: JSON.stringify(payload),
@@ -125,17 +125,30 @@
         function loadVersions() {
             const table = document.getElementById("versionTable");
             table.innerHTML = "";
+
+            // --- NEW: GitHub repository details ---
+            const GITHUB_OWNER = 'rcp0696';
+            const GITHUB_REPO = 'pbiversion';
+            const GITHUB_BRANCH = 'main'; // Or 'master' if that's your default branch
+
             if (versions.length === 0) {
                 table.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-4">No versions uploaded yet.</td></tr>`;
                 return;
             }
+
             versions.forEach((v, index) => {
+                // --- NEW: Construct the direct download URL for the file ---
+                // encodeURIComponent handles filenames with spaces or special characters
+                const downloadUrl = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${encodeURIComponent(v.filename)}`;
+
+                // --- MODIFIED: The "Actions" cell now contains a real download link ---
                 let row = `<tr class="hover:bg-gray-50">
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${v.version}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${v.filename}</td>
                     <td class="px-6 py-4 max-w-xs truncate text-sm text-gray-500" title="${v.notes}">${v.notes}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${v.date}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <a href="${downloadUrl}" download="${v.filename}" target="_blank" class="text-blue-600 hover:text-blue-900 mr-4">Download</a>
                         <button onclick="deleteVersion(${index})" class="text-red-600 hover:text-red-900">Delete</button>
                     </td>
                 </tr>`;
@@ -156,3 +169,4 @@
     </script>
 </body>
 </html>
+
