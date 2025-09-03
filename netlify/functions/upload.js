@@ -20,16 +20,35 @@ exports.handler = async function (event) {
     }
 
     const fileContentBase64 = reportFile.content.split(",")[1];
+    
+    // --- NEW LOGIC: Check if the file already exists to get its SHA ---
+    let sha;
+    try {
+      const { data: existingFile } = await octokit.repos.getContent({
+        owner: "rcp0696",
+        repo: "pbiversion",
+        path: reportFile.name,
+      });
+      // If the file exists, we get its SHA
+      sha = existingFile.sha;
+    } catch (error) {
+      // A 404 error means the file doesn't exist, which is fine.
+      // We'll proceed without a SHA. For any other error, we'll fail.
+      if (error.status !== 404) {
+        throw error;
+      }
+    }
+    // --- END NEW LOGIC ---
 
+    // This one function now handles both creating and updating
     await octokit.repos.createOrUpdateFileContents({
-      // IMPORTANT: Change these two lines
-      owner: "rcp0696", 
+      owner: "rcp0696",
       repo: "pbiversion",
-      
       path: reportFile.name,
       message: commitMessage,
       content: fileContentBase64,
       encoding: "base64",
+      sha: sha, // <-- THE CRUCIAL ADDITION. It will be undefined for new files.
     });
 
     return {
@@ -44,3 +63,4 @@ exports.handler = async function (event) {
     };
   }
 };
+
